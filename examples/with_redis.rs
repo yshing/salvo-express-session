@@ -18,7 +18,7 @@ struct JsonResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    value: Option<String>,
+    value: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     exists: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -105,7 +105,7 @@ async fn set_data(req: &mut Request, depot: &mut Depot) -> Json<JsonResponse> {
     Json(JsonResponse {
         action: Some("set"),
         key: Some(key),
-        value: Some(value),
+        value: Some(serde_json::Value::String(value)),
         session_id: Some(session.id().to_string()),
         ..Default::default()
     })
@@ -118,7 +118,7 @@ async fn get_data(req: &mut Request, depot: &mut Depot) -> Json<JsonResponse> {
     let key = req
         .query::<String>("key")
         .unwrap_or_else(|| "testKey".to_string());
-    let value: Option<String> = session.get(&key);
+    let value: Option<serde_json::Value> = session.get(&key);
     let last_modified_by: Option<String> = session.get("lastModifiedBy");
 
     Json(JsonResponse {
