@@ -64,6 +64,8 @@ impl Default for SessionCookie {
 
 impl SessionCookie {
     /// Create a new session cookie with the given max age in seconds
+    /// 
+    /// For session cookies (non-persistent, expires when browser closes), use `new_session_cookie()`
     pub fn new(max_age_secs: u64) -> Self {
         let max_age_ms = (max_age_secs * 1000) as i64;
         let expires = Utc::now() + chrono::Duration::seconds(max_age_secs as i64);
@@ -72,6 +74,28 @@ impl SessionCookie {
             original_max_age: Some(max_age_ms),
             expires: Some(expires),
             ..Default::default()
+        }
+    }
+
+    /// Create a session cookie with no expiration (non-persistent cookie)
+    /// 
+    /// This is equivalent to `maxAge: null` in express-session.
+    /// The cookie will be deleted when the browser closes.
+    pub fn new_session_cookie() -> Self {
+        Self {
+            original_max_age: None,
+            expires: None,
+            ..Default::default()
+        }
+    }
+
+    /// Create a session cookie with an optional max age
+    /// 
+    /// If `max_age_secs` is None, creates a session cookie (non-persistent)
+    pub fn with_optional_max_age(max_age_secs: Option<u64>) -> Self {
+        match max_age_secs {
+            Some(secs) => Self::new(secs),
+            None => Self::new_session_cookie(),
         }
     }
 
@@ -148,6 +172,26 @@ impl SessionData {
     pub fn new(max_age_secs: u64) -> Self {
         Self {
             cookie: SessionCookie::new(max_age_secs),
+            data: HashMap::new(),
+        }
+    }
+
+    /// Create a new session data as a session cookie (no expiration)
+    /// 
+    /// This is equivalent to `maxAge: null` in express-session.
+    pub fn new_session_cookie() -> Self {
+        Self {
+            cookie: SessionCookie::new_session_cookie(),
+            data: HashMap::new(),
+        }
+    }
+
+    /// Create a new session data with optional max age
+    /// 
+    /// If `max_age_secs` is None, creates a session cookie (non-persistent)
+    pub fn with_optional_max_age(max_age_secs: Option<u64>) -> Self {
+        Self {
+            cookie: SessionCookie::with_optional_max_age(max_age_secs),
             data: HashMap::new(),
         }
     }

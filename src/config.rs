@@ -28,9 +28,10 @@ pub struct SessionConfig {
     /// SameSite attribute for cookie
     pub cookie_same_site: SameSite,
 
-    /// Max age in seconds (default: 86400 = 1 day)
-    /// This is used for both cookie expiry and session TTL
-    pub max_age: u64,
+    /// Max age in seconds (default: None = session cookie)
+    /// When None, cookie expires when browser closes (non-persistent cookie)
+    /// This is used for both cookie expiry and session TTL in store
+    pub max_age: Option<u64>,
 
     /// Session key prefix in store (default: "sess:")
     pub prefix: String,
@@ -67,7 +68,7 @@ impl Default for SessionConfig {
             cookie_http_only: true,
             cookie_secure: false,
             cookie_same_site: SameSite::Lax,
-            max_age: 86400, // 1 day in seconds
+            max_age: None, // Session cookie by default (like express-session)
             prefix: "sess:".to_string(),
             save_uninitialized: false,
             resave: false,
@@ -133,15 +134,16 @@ impl SessionConfig {
         self
     }
 
-    /// Set max age in seconds (default: 86400 = 1 day)
-    pub fn with_max_age(mut self, max_age: u64) -> Self {
-        self.max_age = max_age;
+    /// Set max age in seconds
+    /// Pass None for session cookie (expires when browser closes)
+    pub fn with_max_age(mut self, max_age: impl Into<Option<u64>>) -> Self {
+        self.max_age = max_age.into();
         self
     }
 
     /// Set max age from Duration
-    pub fn with_max_age_duration(mut self, duration: Duration) -> Self {
-        self.max_age = duration.as_secs();
+    pub fn with_max_age_duration(mut self, duration: impl Into<Option<Duration>>) -> Self {
+        self.max_age = duration.into().map(|d| d.as_secs());
         self
     }
 
@@ -170,7 +172,7 @@ impl SessionConfig {
     }
 
     /// Get max age as Duration
-    pub fn max_age_duration(&self) -> Duration {
-        Duration::from_secs(self.max_age)
+    pub fn max_age_duration(&self) -> Option<Duration> {
+        self.max_age.map(Duration::from_secs)
     }
 }

@@ -163,6 +163,51 @@ async fn clear_session(depot: &mut Depot) -> Json<serde_json::Value> {
     }))
 }
 
+#[handler]
+async fn cookie_info(depot: &mut Depot) -> Json<serde_json::Value> {
+    let session = depot.session().expect("Session not found");
+    let cookie = session.cookie();
+
+    Json(serde_json::json!({
+        "server": "rust",
+        "sessionId": session.id(),
+        "cookie": {
+            "originalMaxAge": cookie.original_max_age,
+            "maxAge": cookie.max_age(),
+            "expires": cookie.expires,
+            "httpOnly": cookie.http_only,
+            "secure": cookie.secure,
+            "path": cookie.path,
+            "sameSite": cookie.same_site,
+            "domain": cookie.domain
+        }
+    }))
+}
+
+#[handler]
+async fn set_cookie_maxage(req: &mut Request, depot: &mut Depot) -> Json<serde_json::Value> {
+    let session = depot.session_mut().expect("Session not found");
+
+    let seconds: u64 = req
+        .query::<u64>("seconds")
+        .unwrap_or(3600);
+
+    // Set the cookie max age dynamically
+    session.set_cookie_max_age_secs(seconds);
+    session.set("customMaxAgeSet", true);
+    session.set("lastModifiedBy", "rust");
+
+    let cookie = session.cookie();
+
+    Json(serde_json::json!({
+        "server": "rust",
+        "action": "set-cookie-maxage",
+        "maxAgeSecs": seconds,
+        "newExpires": cookie.expires,
+        "sessionId": session.id()
+    }))
+}
+
 #[tokio::main]
 async fn main() {
     // Set up logging
@@ -202,7 +247,9 @@ async fn main() {
                 .push(Router::with_path("set").get(set_data))
                 .push(Router::with_path("get").get(get_data))
                 .push(Router::with_path("counter").get(counter))
-                .push(Router::with_path("clear").get(clear_session)),
+                .push(Router::with_path("clear").get(clear_session))
+                .push(Router::with_path("cookie-info").get(cookie_info))
+                .push(Router::with_path("set-cookie-maxage").get(set_cookie_maxage)),
         );
 
     // Get port from environment or use default

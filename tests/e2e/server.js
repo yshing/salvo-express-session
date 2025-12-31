@@ -115,6 +115,39 @@ async function main() {
     });
   });
 
+  // Get cookie info
+  app.get('/cookie-info', (req, res) => {
+    res.json({
+      server: 'nodejs',
+      sessionId: req.sessionID,
+      cookie: {
+        originalMaxAge: req.session.cookie.originalMaxAge,
+        maxAge: req.session.cookie.maxAge,
+        expires: req.session.cookie.expires,
+        httpOnly: req.session.cookie.httpOnly,
+        secure: req.session.cookie.secure,
+        path: req.session.cookie.path,
+        sameSite: req.session.cookie.sameSite,
+        domain: req.session.cookie.domain
+      }
+    });
+  });
+
+  // Set custom cookie max age (dynamic expiration)
+  app.get('/set-cookie-maxage', (req, res) => {
+    const maxAgeSecs = parseInt(req.query.seconds || '3600', 10);
+    req.session.cookie.maxAge = maxAgeSecs * 1000; // express uses milliseconds
+    req.session.customMaxAgeSet = true;
+    req.session.lastModifiedBy = 'nodejs';
+    res.json({
+      server: 'nodejs',
+      action: 'set-cookie-maxage',
+      maxAgeSecs,
+      newExpires: req.session.cookie.expires,
+      sessionId: req.sessionID
+    });
+  });
+
   app.listen(PORT, () => {
     console.log(`Node.js E2E test server running on http://127.0.0.1:${PORT}`);
     console.log(`Using session secret: ${SESSION_SECRET.substring(0, 4)}...`);

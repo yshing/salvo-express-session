@@ -163,8 +163,11 @@ let config = SessionConfig::new("secret")
     // SameSite attribute (default: Lax)
     .with_same_site(SameSite::Strict)
     
-    // Max age in seconds (default: 86400 = 1 day)
-    .with_max_age(3600)
+    // Max age in seconds (default: None = session cookie)
+    // Session cookies expire when browser closes
+    .with_max_age(3600)  // 1 hour
+    // Or for session cookie (expires on browser close):
+    // .with_max_age(None)
     
     // Session key prefix in store (default: "sess:")
     .with_prefix("sess:")

@@ -73,10 +73,10 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
             cookie_builder = cookie_builder.domain(domain);
         }
 
-        // Set max age
-        if self.config.max_age > 0 {
+        // Set max age (if configured, otherwise session cookie)
+        if let Some(max_age) = self.config.max_age {
             cookie_builder =
-                cookie_builder.max_age(CookieDuration::seconds(self.config.max_age as i64));
+                cookie_builder.max_age(CookieDuration::seconds(max_age as i64));
         }
 
         // Set SameSite
@@ -113,8 +113,8 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
                 return Some(secs as u64);
             }
         }
-        // Fall back to config max age
-        Some(self.config.max_age)
+        // Fall back to config max age (None = no TTL for session cookies)
+        self.config.max_age
     }
 }
 
@@ -146,7 +146,7 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
                         if data.cookie.is_expired() {
                             // Session expired, create new one
                             let new_id = self.generate_session_id();
-                            let new_data = SessionData::new(self.config.max_age);
+                            let new_data = SessionData::with_optional_max_age(self.config.max_age);
                             (new_id, true, new_data)
                         } else {
                             (sid, false, data)
@@ -155,13 +155,13 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
                     Ok(None) => {
                         // Session not found, create new one
                         let new_id = self.generate_session_id();
-                        let new_data = SessionData::new(self.config.max_age);
+                        let new_data = SessionData::with_optional_max_age(self.config.max_age);
                         (new_id, true, new_data)
                     }
                     Err(e) => {
                         tracing::error!("Failed to load session: {}", e);
                         let new_id = self.generate_session_id();
-                        let new_data = SessionData::new(self.config.max_age);
+                        let new_data = SessionData::with_optional_max_age(self.config.max_age);
                         (new_id, true, new_data)
                     }
                 }
@@ -169,7 +169,7 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
             None => {
                 // No cookie, create new session
                 let new_id = self.generate_session_id();
-                let new_data = SessionData::new(self.config.max_age);
+                let new_data = SessionData::with_optional_max_age(self.config.max_age);
                 (new_id, true, new_data)
             }
         };

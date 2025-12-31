@@ -225,6 +225,110 @@ describe('New Session for New Client', () => {
   });
 });
 
+describe('Cookie Options Compatibility', () => {
+  const client = new TestClient();
+
+  it('should get cookie info from Node.js', async () => {
+    // First create a session
+    await client.request(`${NODE_URL}/set?key=test&value=cookie-test`);
+    
+    const res = await client.request(`${NODE_URL}/cookie-info`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.server, 'nodejs');
+    assert.ok(res.body.cookie, 'Should have cookie object');
+    assert.strictEqual(res.body.cookie.httpOnly, true);
+    assert.strictEqual(res.body.cookie.secure, false);
+    assert.strictEqual(res.body.cookie.path, '/');
+    assert.ok(res.body.cookie.originalMaxAge, 'Should have originalMaxAge');
+  });
+
+  it('should get same cookie info from Rust', async () => {
+    const res = await client.request(`${RUST_URL}/cookie-info`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.server, 'rust');
+    assert.ok(res.body.cookie, 'Should have cookie object');
+    assert.strictEqual(res.body.cookie.httpOnly, true);
+    assert.strictEqual(res.body.cookie.secure, false);
+    assert.strictEqual(res.body.cookie.path, '/');
+    assert.ok(res.body.cookie.originalMaxAge, 'Should have originalMaxAge');
+  });
+
+  it('should have matching cookie maxAge between servers', async () => {
+    const nodeRes = await client.request(`${NODE_URL}/cookie-info`);
+    const rustRes = await client.request(`${RUST_URL}/cookie-info`);
+
+    // Both should have similar maxAge (within a few seconds tolerance)
+    const nodeMaxAge = nodeRes.body.cookie.maxAge;
+    const rustMaxAge = rustRes.body.cookie.maxAge;
+    
+    // They should be within 5 seconds of each other
+    const diff = Math.abs(nodeMaxAge - rustMaxAge);
+    assert.ok(diff < 5000, `maxAge difference should be < 5 seconds, got ${diff}ms`);
+  });
+});
+
+describe('Dynamic Cookie MaxAge', () => {
+  const client = new TestClient();
+
+  it('should set custom maxAge in Node.js', async () => {
+    // Create session first
+    await client.request(`${NODE_URL}/set?key=test&value=dynamic-test`);
+    
+    // Set custom max age to 1 hour (3600 seconds)
+    const res = await client.request(`${NODE_URL}/set-cookie-maxage?seconds=3600`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.server, 'nodejs');
+    assert.strictEqual(res.body.maxAgeSecs, 3600);
+    assert.ok(res.body.newExpires, 'Should have new expires date');
+  });
+
+  it('should see updated maxAge in Rust', async () => {
+    const res = await client.request(`${RUST_URL}/cookie-info`);
+    
+    // originalMaxAge should now be 3600 * 1000 = 3600000ms
+    assert.strictEqual(res.body.cookie.originalMaxAge, 3600000);
+    
+    // maxAge should be close to 3600000 (within a few seconds)
+    assert.ok(res.body.cookie.maxAge > 3590000, 'maxAge should be close to 3600 seconds');
+  });
+
+  it('should verify customMaxAgeSet flag is shared', async () => {
+    const res = await client.request(`${RUST_URL}/get?key=customMaxAgeSet`);
+    assert.strictEqual(res.body.value, true);
+  });
+});
+
+describe('Dynamic Cookie MaxAge Set in Rust', () => {
+  const client = new TestClient();
+
+  it('should set custom maxAge in Rust', async () => {
+    // Create session first
+    await client.request(`${RUST_URL}/set?key=test&value=rust-dynamic-test`);
+    
+    // Set custom max age to 2 hours (7200 seconds)
+    const res = await client.request(`${RUST_URL}/set-cookie-maxage?seconds=7200`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.server, 'rust');
+    assert.strictEqual(res.body.maxAgeSecs, 7200);
+    assert.ok(res.body.newExpires, 'Should have new expires date');
+  });
+
+  it('should see updated maxAge in Node.js', async () => {
+    const res = await client.request(`${NODE_URL}/cookie-info`);
+    
+    // originalMaxAge should now be 7200 * 1000 = 7200000ms
+    assert.strictEqual(res.body.cookie.originalMaxAge, 7200000);
+    
+    // maxAge should be close to 7200000 (within a few seconds)
+    assert.ok(res.body.cookie.maxAge > 7190000, 'maxAge should be close to 7200 seconds');
+  });
+
+  it('should verify lastModifiedBy is rust', async () => {
+    const res = await client.request(`${NODE_URL}/get?key=lastModifiedBy`);
+    assert.strictEqual(res.body.value, 'rust');
+  });
+});
+
 console.log('Running E2E tests...');
 console.log(`Rust server: ${RUST_URL}`);
 console.log(`Node.js server: ${NODE_URL}`);
