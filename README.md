@@ -95,6 +95,8 @@ async fn main() {
 ## Session API
 
 ```rust
+use chrono::{Utc, Duration};
+
 #[handler]
 async fn example(depot: &mut Depot) {
     let session = depot.session_mut().expect("Session not found");
@@ -126,6 +128,16 @@ async fn example(depot: &mut Depot) {
     // Check session status
     let is_new = session.is_new();
     let is_modified = session.is_modified();
+    
+    // Dynamic cookie expiration (like express-session)
+    // Set expiration to 1 hour from now
+    session.set_cookie_expires(Some(Utc::now() + Duration::hours(1)));
+    
+    // Or set max age in seconds
+    session.set_cookie_max_age_secs(3600); // 1 hour
+    
+    // Or set max age in milliseconds (like express-session)
+    session.set_cookie_max_age(Some(60 * 60 * 1000)); // 1 hour
 }
 ```
 

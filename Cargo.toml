@@ -2,7 +2,7 @@
 name = "salvo-express-session"
 version = "0.1.0"
 edition = "2021"
-authors = "yshing"
+authors = ["yshing"]
 description = "Express-session compatible session middleware for Salvo, with connect-redis support"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/yshing/salvo-express-session"

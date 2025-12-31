@@ -98,6 +98,29 @@ impl SessionCookie {
             None => false, // No expiry = browser session
         }
     }
+
+    /// Set the expiration time directly
+    /// 
+    /// This is equivalent to `req.session.cookie.expires = new Date(...)` in express-session
+    pub fn set_expires(&mut self, expires: Option<DateTime<Utc>>) {
+        self.expires = expires;
+    }
+
+    /// Set the max age in milliseconds and update expires accordingly
+    /// 
+    /// This is equivalent to `req.session.cookie.maxAge = milliseconds` in express-session
+    pub fn set_max_age(&mut self, max_age_ms: Option<i64>) {
+        self.original_max_age = max_age_ms;
+        self.expires = max_age_ms.map(|ms| Utc::now() + chrono::Duration::milliseconds(ms));
+    }
+
+    /// Set the max age in seconds and update expires accordingly
+    /// 
+    /// Convenience method that takes seconds instead of milliseconds
+    pub fn set_max_age_secs(&mut self, max_age_secs: u64) {
+        let max_age_ms = (max_age_secs * 1000) as i64;
+        self.set_max_age(Some(max_age_ms));
+    }
 }
 
 /// Session data structure compatible with express-session/connect-redis
@@ -268,6 +291,49 @@ impl Session {
     /// Touch the session - update cookie expiration
     pub fn touch(&self) {
         self.data.write().cookie.touch();
+    }
+
+    /// Set the cookie expiration time directly
+    /// 
+    /// This is equivalent to `req.session.cookie.expires = new Date(...)` in express-session
+    /// 
+    /// # Example
+    /// ```ignore
+    /// use chrono::{Utc, Duration};
+    /// 
+    /// // Set expiration to 1 hour from now
+    /// let expires = Utc::now() + Duration::hours(1);
+    /// session.set_cookie_expires(Some(expires));
+    /// ```
+    pub fn set_cookie_expires(&self, expires: Option<DateTime<Utc>>) {
+        self.data.write().cookie.set_expires(expires);
+        self.modified.store(true, Ordering::SeqCst);
+    }
+
+    /// Set the cookie max age in milliseconds
+    /// 
+    /// This is equivalent to `req.session.cookie.maxAge = milliseconds` in express-session
+    /// 
+    /// # Example
+    /// ```ignore
+    /// // Set max age to 1 hour (in milliseconds)
+    /// session.set_cookie_max_age(Some(60 * 60 * 1000));
+    /// ```
+    pub fn set_cookie_max_age(&self, max_age_ms: Option<i64>) {
+        self.data.write().cookie.set_max_age(max_age_ms);
+        self.modified.store(true, Ordering::SeqCst);
+    }
+
+    /// Set the cookie max age in seconds (convenience method)
+    /// 
+    /// # Example
+    /// ```ignore
+    /// // Set max age to 1 hour
+    /// session.set_cookie_max_age_secs(3600);
+    /// ```
+    pub fn set_cookie_max_age_secs(&self, max_age_secs: u64) {
+        self.data.write().cookie.set_max_age_secs(max_age_secs);
+        self.modified.store(true, Ordering::SeqCst);
     }
 
     /// Get a copy of the session data
