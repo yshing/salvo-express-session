@@ -1,12 +1,12 @@
 //! Session data structure compatible with express-session
 
 use chrono::{DateTime, Utc};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 /// Cookie data structure compatible with express-session
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,27 +14,27 @@ use parking_lot::RwLock;
 pub struct SessionCookie {
     /// Original max age in milliseconds (as set initially)
     pub original_max_age: Option<i64>,
-    
+
     /// Expiration time
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires: Option<DateTime<Utc>>,
-    
+
     /// Secure flag
     #[serde(default)]
     pub secure: bool,
-    
+
     /// HttpOnly flag
     #[serde(default = "default_http_only")]
     pub http_only: bool,
-    
+
     /// Cookie path
     #[serde(default = "default_path")]
     pub path: String,
-    
+
     /// Cookie domain
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
-    
+
     /// SameSite attribute
     #[serde(skip_serializing_if = "Option::is_none")]
     pub same_site: Option<String>,
@@ -67,7 +67,7 @@ impl SessionCookie {
     pub fn new(max_age_secs: u64) -> Self {
         let max_age_ms = (max_age_secs * 1000) as i64;
         let expires = Utc::now() + chrono::Duration::seconds(max_age_secs as i64);
-        
+
         Self {
             original_max_age: Some(max_age_ms),
             expires: Some(expires),
@@ -105,7 +105,7 @@ impl SessionCookie {
 pub struct SessionData {
     /// Cookie information
     pub cookie: SessionCookie,
-    
+
     /// Additional session data (flattened at same level as cookie)
     #[serde(flatten)]
     pub data: HashMap<String, Value>,
@@ -131,7 +131,9 @@ impl SessionData {
 
     /// Get a value from session data
     pub fn get<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Option<T> {
-        self.data.get(key).and_then(|v| serde_json::from_value(v.clone()).ok())
+        self.data
+            .get(key)
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
     /// Set a value in session data
@@ -166,19 +168,19 @@ impl SessionData {
 pub struct Session {
     /// Session ID
     id: String,
-    
+
     /// Session data
     data: Arc<RwLock<SessionData>>,
-    
+
     /// Whether the session has been modified
     modified: Arc<AtomicBool>,
-    
+
     /// Whether this is a new session
     is_new: bool,
-    
+
     /// Whether the session should be destroyed
     destroy: Arc<AtomicBool>,
-    
+
     /// Whether the session should be regenerated
     regenerate: Arc<AtomicBool>,
 }

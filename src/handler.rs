@@ -4,7 +4,7 @@ use salvo::prelude::*;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::config::{SessionConfig, SameSite};
+use crate::config::{SameSite, SessionConfig};
 use crate::cookie_signature::{sign, unsign_with_secrets};
 use crate::session::{Session, SessionData};
 use crate::store::SessionStore;
@@ -12,7 +12,7 @@ use crate::store::SessionStore;
 const SESSION_KEY: &str = "salvo.express.session";
 
 /// Express-session compatible middleware for Salvo
-/// 
+///
 /// This handler manages sessions in a way that is fully compatible with
 /// Node.js express-session and connect-redis, allowing seamless session
 /// sharing between Rust and Node.js applications.
@@ -41,13 +41,13 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
         // Get the cookie value
         let cookie_value = req.cookie(&self.config.cookie_name)?;
         let signed_value = cookie_value.value();
-        
+
         // URL decode the value (cookies are URL encoded)
         let decoded = match urlencoding::decode(signed_value) {
             Ok(d) => d.to_string(),
             Err(_) => signed_value.to_string(),
         };
-        
+
         // Unsign the cookie value
         unsign_with_secrets(&decoded, &self.config.secrets)
     }
@@ -55,33 +55,34 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
     /// Set session cookie on response
     fn set_session_cookie(&self, res: &mut Response, session_id: &str) {
         let signed = sign(session_id, &self.config.secrets[0]);
-        
+
         // Build cookie with owned strings to avoid lifetime issues
         let cookie_name = self.config.cookie_name.clone();
         let cookie_path = self.config.cookie_path.clone();
         let cookie_domain = self.config.cookie_domain.clone();
-        
+
         let mut cookie_builder = cookie::Cookie::build((cookie_name, signed))
             .path(cookie_path)
             .http_only(self.config.cookie_http_only)
             .secure(self.config.cookie_secure);
-        
+
         if let Some(domain) = cookie_domain {
             cookie_builder = cookie_builder.domain(domain);
         }
-        
+
         // Set max age
         if self.config.max_age > 0 {
-            cookie_builder = cookie_builder.max_age(cookie::time::Duration::seconds(self.config.max_age as i64));
+            cookie_builder =
+                cookie_builder.max_age(cookie::time::Duration::seconds(self.config.max_age as i64));
         }
-        
+
         // Set SameSite
         cookie_builder = match self.config.cookie_same_site {
             SameSite::Strict => cookie_builder.same_site(cookie::SameSite::Strict),
             SameSite::Lax => cookie_builder.same_site(cookie::SameSite::Lax),
             SameSite::None => cookie_builder.same_site(cookie::SameSite::None),
         };
-        
+
         res.add_cookie(cookie_builder.build());
     }
 
@@ -89,12 +90,12 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
     fn remove_session_cookie(&self, res: &mut Response) {
         let cookie_name = self.config.cookie_name.clone();
         let cookie_path = self.config.cookie_path.clone();
-        
+
         let cookie = cookie::Cookie::build(cookie_name)
             .path(cookie_path)
             .max_age(cookie::time::Duration::ZERO)
             .build();
-        
+
         res.add_cookie(cookie);
     }
 
@@ -125,7 +126,13 @@ impl<S: SessionStore> Clone for ExpressSessionHandler<S> {
 
 #[async_trait]
 impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
-    async fn handle(&self, req: &mut Request, depot: &mut Depot, res: &mut Response, ctrl: &mut FlowCtrl) {
+    async fn handle(
+        &self,
+        req: &mut Request,
+        depot: &mut Depot,
+        res: &mut Response,
+        ctrl: &mut FlowCtrl,
+    ) {
         // Try to get session ID from cookie
         let (session_id, is_new, existing_data) = match self.get_session_id_from_cookie(req) {
             Some(sid) => {
@@ -166,7 +173,7 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
 
         // Create session wrapper
         let session = Session::new(session_id.clone(), existing_data, is_new);
-        
+
         // Store session in depot
         depot.insert(SESSION_KEY, session.clone());
 
@@ -174,7 +181,7 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
         ctrl.call_next(req, depot, res).await;
 
         // After request processing, handle session persistence
-        
+
         // Check if session should be destroyed
         if session.should_destroy() {
             if let Err(e) = self.store.destroy(&session_id).await {
@@ -198,17 +205,16 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
 
         let session_data = session.data();
         let ttl = self.get_session_ttl(&session_data);
-        
+
         // Determine if we need to save
-        let should_save = session.is_modified() 
-            || self.config.resave 
+        let should_save = session.is_modified()
+            || self.config.resave
             || (is_new && self.config.save_uninitialized)
             || session.should_regenerate();
-        
+
         // Determine if we should set cookie
-        let should_set_cookie = is_new 
-            || session.should_regenerate()
-            || (self.config.rolling && session.is_modified());
+        let should_set_cookie =
+            is_new || session.should_regenerate() || (self.config.rolling && session.is_modified());
 
         if should_save {
             // Save session to store
@@ -217,7 +223,11 @@ impl<S: SessionStore> Handler for ExpressSessionHandler<S> {
             }
         } else if !is_new && !session.is_modified() {
             // Touch session to reset TTL
-            if let Err(e) = self.store.touch(&final_session_id, &session_data, ttl).await {
+            if let Err(e) = self
+                .store
+                .touch(&final_session_id, &session_data, ttl)
+                .await
+            {
                 tracing::error!("Failed to touch session: {}", e);
             }
         }

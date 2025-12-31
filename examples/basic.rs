@@ -6,13 +6,13 @@ use salvo_express_session::{ExpressSessionHandler, MemoryStore, SessionConfig, S
 #[handler]
 async fn index(depot: &mut Depot) -> String {
     let session = depot.session_mut().expect("Session not found");
-    
+
     // Get current view count
     let views: i32 = session.get("views").unwrap_or(0);
-    
+
     // Increment view count
     session.set("views", views + 1);
-    
+
     format!(
         "Hello! You have viewed this page {} time(s).\nSession ID: {}",
         views + 1,
@@ -23,7 +23,7 @@ async fn index(depot: &mut Depot) -> String {
 #[handler]
 async fn get_user(depot: &mut Depot) -> String {
     let session = depot.session_mut().expect("Session not found");
-    
+
     match session.get::<String>("user") {
         Some(user) => format!("Logged in as: {}", user),
         None => "Not logged in".to_string(),
@@ -33,44 +33,46 @@ async fn get_user(depot: &mut Depot) -> String {
 #[handler]
 async fn set_user(req: &mut Request, depot: &mut Depot) -> String {
     let session = depot.session_mut().expect("Session not found");
-    
+
     // Get username from query parameter
-    let username = req.query::<String>("name").unwrap_or_else(|| "anonymous".to_string());
-    
+    let username = req
+        .query::<String>("name")
+        .unwrap_or_else(|| "anonymous".to_string());
+
     session.set("user", &username);
-    
+
     format!("User set to: {}", username)
 }
 
 #[handler]
 async fn logout(depot: &mut Depot) -> &'static str {
     let session = depot.session_mut().expect("Session not found");
-    
+
     // Clear all session data
     session.clear();
-    
+
     "Logged out successfully"
 }
 
 #[handler]
 async fn destroy_session(depot: &mut Depot) -> &'static str {
     let session = depot.session_mut().expect("Session not found");
-    
+
     // Mark session for destruction
     session.destroy();
-    
+
     "Session destroyed"
 }
 
 #[handler]
 async fn regenerate_session(depot: &mut Depot) -> String {
     let session = depot.session_mut().expect("Session not found");
-    
+
     let old_id = session.id().to_string();
-    
+
     // Mark session for regeneration (new ID, keep data)
     session.regenerate();
-    
+
     format!("Session regenerated. Old ID: {}", old_id)
 }
 
@@ -112,6 +114,6 @@ async fn main() {
     println!("  GET /logout     - Clear session");
     println!("  GET /destroy    - Destroy session");
     println!("  GET /regenerate - Regenerate session ID");
-    
+
     Server::new(acceptor).serve(router).await;
 }

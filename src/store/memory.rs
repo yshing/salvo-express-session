@@ -1,5 +1,5 @@
 //! In-memory session store
-//! 
+//!
 //! This is primarily for development and testing.
 //! For production, use RedisStore or another persistent store.
 
@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use super::SessionStore;
 use crate::error::SessionError;
 use crate::session::SessionData;
-use super::SessionStore;
 
 struct StoredSession {
     data: SessionData,
@@ -19,7 +19,7 @@ struct StoredSession {
 }
 
 /// In-memory session store
-/// 
+///
 /// Warning: This store is not suitable for production use because:
 /// - Sessions are lost on server restart
 /// - Sessions are not shared across multiple server instances
@@ -55,11 +55,9 @@ impl MemoryStore {
     pub fn cleanup_expired(&self) {
         let mut sessions = self.sessions.write();
         let now = Instant::now();
-        sessions.retain(|_, stored| {
-            match stored.expires_at {
-                Some(exp) => exp > now,
-                None => true,
-            }
+        sessions.retain(|_, stored| match stored.expires_at {
+            Some(exp) => exp > now,
+            None => true,
         });
     }
 }
@@ -84,7 +82,7 @@ impl SessionStore for MemoryStore {
     async fn get(&self, sid: &str) -> Result<Option<SessionData>, SessionError> {
         let key = self.make_key(sid);
         let sessions = self.sessions.read();
-        
+
         if let Some(stored) = sessions.get(&key) {
             // Check if expired
             if let Some(exp) = stored.expires_at {
@@ -98,15 +96,20 @@ impl SessionStore for MemoryStore {
         }
     }
 
-    async fn set(&self, sid: &str, session: &SessionData, ttl_secs: Option<u64>) -> Result<(), SessionError> {
+    async fn set(
+        &self,
+        sid: &str,
+        session: &SessionData,
+        ttl_secs: Option<u64>,
+    ) -> Result<(), SessionError> {
         let key = self.make_key(sid);
         let expires_at = ttl_secs.map(|secs| Instant::now() + Duration::from_secs(secs));
-        
+
         let stored = StoredSession {
             data: session.clone(),
             expires_at,
         };
-        
+
         self.sessions.write().insert(key, stored);
         Ok(())
     }
@@ -117,14 +120,19 @@ impl SessionStore for MemoryStore {
         Ok(())
     }
 
-    async fn touch(&self, sid: &str, _session: &SessionData, ttl_secs: Option<u64>) -> Result<(), SessionError> {
+    async fn touch(
+        &self,
+        sid: &str,
+        _session: &SessionData,
+        ttl_secs: Option<u64>,
+    ) -> Result<(), SessionError> {
         let key = self.make_key(sid);
         let mut sessions = self.sessions.write();
-        
+
         if let Some(stored) = sessions.get_mut(&key) {
             stored.expires_at = ttl_secs.map(|secs| Instant::now() + Duration::from_secs(secs));
         }
-        
+
         Ok(())
     }
 
@@ -142,7 +150,8 @@ impl SessionStore for MemoryStore {
         self.cleanup_expired();
         let sessions = self.sessions.read();
         let prefix_len = self.prefix.len();
-        Ok(sessions.keys()
+        Ok(sessions
+            .keys()
             .map(|k| k[prefix_len..].to_string())
             .collect())
     }
@@ -150,9 +159,7 @@ impl SessionStore for MemoryStore {
     async fn all(&self) -> Result<Vec<SessionData>, SessionError> {
         self.cleanup_expired();
         let sessions = self.sessions.read();
-        Ok(sessions.values()
-            .map(|s| s.data.clone())
-            .collect())
+        Ok(sessions.values().map(|s| s.data.clone()).collect())
     }
 }
 
@@ -163,20 +170,20 @@ mod tests {
     #[tokio::test]
     async fn test_memory_store_basic() {
         let store = MemoryStore::new();
-        
+
         // Create session data
         let mut data = SessionData::new(3600);
         data.set("user", "alice");
-        
+
         // Set session
         store.set("test-id", &data, Some(3600)).await.unwrap();
-        
+
         // Get session
         let retrieved = store.get("test-id").await.unwrap();
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.get::<String>("user"), Some("alice".to_string()));
-        
+
         // Destroy session
         store.destroy("test-id").await.unwrap();
         let retrieved = store.get("test-id").await.unwrap();
@@ -186,10 +193,10 @@ mod tests {
     #[tokio::test]
     async fn test_memory_store_expiry() {
         let store = MemoryStore::new();
-        
+
         let data = SessionData::new(1);
         store.set("test-id", &data, Some(0)).await.unwrap(); // Already expired
-        
+
         let retrieved = store.get("test-id").await.unwrap();
         assert!(retrieved.is_none());
     }

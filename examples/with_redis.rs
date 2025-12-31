@@ -60,13 +60,13 @@ async fn health() -> Json<JsonResponse> {
 #[handler]
 async fn index(depot: &mut Depot) -> String {
     let session = depot.session_mut().expect("Session not found");
-    
+
     // Get current view count
     let views: i32 = session.get("views").unwrap_or(0);
-    
+
     // Increment view count
     session.set("views", views + 1);
-    
+
     format!(
         "Hello from Rust + Redis!\nViews: {}\nSession ID: {}\n\nThis session is compatible with Node.js express-session + connect-redis!",
         views + 1,
@@ -78,7 +78,7 @@ async fn index(depot: &mut Depot) -> String {
 async fn get_session_info(depot: &mut Depot) -> Json<serde_json::Value> {
     let session = depot.session_mut().expect("Session not found");
     let data = session.data();
-    
+
     Json(serde_json::json!({
         "server": "rust",
         "sessionId": session.id(),
@@ -90,14 +90,18 @@ async fn get_session_info(depot: &mut Depot) -> Json<serde_json::Value> {
 #[handler]
 async fn set_data(req: &mut Request, depot: &mut Depot) -> Json<JsonResponse> {
     let session = depot.session_mut().expect("Session not found");
-    
-    let key = req.query::<String>("key").unwrap_or_else(|| "testKey".to_string());
-    let value = req.query::<String>("value").unwrap_or_else(|| "testValue".to_string());
-    
+
+    let key = req
+        .query::<String>("key")
+        .unwrap_or_else(|| "testKey".to_string());
+    let value = req
+        .query::<String>("value")
+        .unwrap_or_else(|| "testValue".to_string());
+
     session.set(&key, &value);
     session.set("lastModifiedBy", "rust");
     session.set("lastModifiedAt", chrono::Utc::now().to_rfc3339());
-    
+
     Json(JsonResponse {
         action: Some("set"),
         key: Some(key),
@@ -110,11 +114,13 @@ async fn set_data(req: &mut Request, depot: &mut Depot) -> Json<JsonResponse> {
 #[handler]
 async fn get_data(req: &mut Request, depot: &mut Depot) -> Json<JsonResponse> {
     let session = depot.session_mut().expect("Session not found");
-    
-    let key = req.query::<String>("key").unwrap_or_else(|| "testKey".to_string());
+
+    let key = req
+        .query::<String>("key")
+        .unwrap_or_else(|| "testKey".to_string());
     let value: Option<String> = session.get(&key);
     let last_modified_by: Option<String> = session.get("lastModifiedBy");
-    
+
     Json(JsonResponse {
         action: Some("get"),
         key: Some(key),
@@ -129,13 +135,13 @@ async fn get_data(req: &mut Request, depot: &mut Depot) -> Json<JsonResponse> {
 #[handler]
 async fn counter(depot: &mut Depot) -> Json<JsonResponse> {
     let session = depot.session_mut().expect("Session not found");
-    
+
     let count: i32 = session.get("counter").unwrap_or(0);
     let new_count = count + 1;
-    
+
     session.set("counter", new_count);
     session.set("lastModifiedBy", "rust");
-    
+
     Json(JsonResponse {
         counter: Some(new_count),
         session_id: Some(session.id().to_string()),
@@ -147,9 +153,9 @@ async fn counter(depot: &mut Depot) -> Json<JsonResponse> {
 async fn clear_session(depot: &mut Depot) -> Json<serde_json::Value> {
     let session = depot.session_mut().expect("Session not found");
     let session_id = session.id().to_string();
-    
+
     session.destroy();
-    
+
     Json(serde_json::json!({
         "server": "rust",
         "action": "clear",
@@ -164,7 +170,7 @@ async fn main() {
 
     // Get Redis URL from environment or use default
     let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
-    
+
     println!("Connecting to Redis at {}", redis_url);
 
     // Create Redis store
@@ -174,7 +180,7 @@ async fn main() {
 
     // Configure session - use same settings as your Node.js app for compatibility
     let secret = std::env::var("SESSION_SECRET").unwrap_or_else(|_| "keyboard cat".to_string());
-    
+
     let config = SessionConfig::new(&secret)
         .with_cookie_name("connect.sid") // Must match Node.js config
         .with_prefix("sess:") // Must match connect-redis prefix (default)
@@ -218,8 +224,11 @@ async fn main() {
     println!();
     println!("To test compatibility with Node.js:");
     println!("1. Set up a Node.js app with express-session and connect-redis");
-    println!("2. Use the same secret ('{}') and cookie name ('connect.sid')", secret);
+    println!(
+        "2. Use the same secret ('{}') and cookie name ('connect.sid')",
+        secret
+    );
     println!("3. Sessions will be shared between both applications!");
-    
+
     Server::new(acceptor).serve(router).await;
 }
