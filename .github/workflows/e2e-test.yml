@@ -1,0 +1,94 @@
+name: E2E Compatibility Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  SESSION_SECRET: "e2e-test-secret-key"
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'tests/e2e/package-lock.json'
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build Rust app
+        run: cargo build --example with_redis --features redis-store
+
+      - name: Install Node.js dependencies
+        working-directory: tests/e2e
+        run: npm ci
+
+      - name: Start Rust app
+        run: |
+          REDIS_URL=redis://127.0.0.1:6379 \
+          SESSION_SECRET=$SESSION_SECRET \
+          cargo run --example with_redis --features redis-store &
+          echo $! > /tmp/rust_app.pid
+        env:
+          RUST_LOG: info
+
+      - name: Start Node.js app
+        working-directory: tests/e2e
+        run: |
+          REDIS_URL=redis://127.0.0.1:6379 \
+          SESSION_SECRET=$SESSION_SECRET \
+          node server.js &
+          echo $! > /tmp/node_app.pid
+
+      - name: Wait for servers to be ready
+        run: |
+          echo "Waiting for Rust server on port 5800..."
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:5800/health > /dev/null 2>&1; do sleep 1; done'
+          echo "Rust server is ready!"
+          
+          echo "Waiting for Node.js server on port 3000..."
+          timeout 30 bash -c 'until curl -s http://127.0.0.1:3000/health > /dev/null 2>&1; do sleep 1; done'
+          echo "Node.js server is ready!"
+
+      - name: Run E2E tests
+        working-directory: tests/e2e
+        run: npm test
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/rust_app.pid ]; then kill $(cat /tmp/rust_app.pid) 2>/dev/null || true; fi
+          if [ -f /tmp/node_app.pid ]; then kill $(cat /tmp/node_app.pid) 2>/dev/null || true; fi

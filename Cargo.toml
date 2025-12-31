@@ -1,0 +1,67 @@
+[package]
+name = "salvo-express-session"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "Express-session compatible session middleware for Salvo, with connect-redis support"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yshing/salvo-express-session"
+keywords = ["salvo", "session", "express", "redis", "middleware"]
+categories = ["web-programming", "authentication"]
+
+[dependencies]
+# Salvo web framework
+salvo = { version = "0.77", features = ["cookie"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Redis support (optional)
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"], optional = true }
+
+# Cookie handling
+cookie = { version = "0.18", features = ["percent-encode"] }
+
+# URL encoding
+urlencoding = "2.1"
+
+# Cryptography for HMAC signatures (express-session compatible)
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+
+# Async trait support
+async-trait = "0.1"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID for session ID generation
+uuid = { version = "1", features = ["v4"] }
+
+# Logging
+tracing = "0.1"
+
+# Parking lot for synchronization
+parking_lot = "0.12"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tracing-subscriber = "0.3"
+
+[features]
+default = ["redis-store"]
+redis-store = ["redis"]
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "with_redis"
+path = "examples/with_redis.rs"
+required-features = ["redis-store"]

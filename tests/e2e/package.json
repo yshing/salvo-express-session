@@ -1,0 +1,17 @@
+{
+  "name": "salvo-express-session-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for salvo-express-session compatibility with Node.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test.js"
+  },
+  "dependencies": {
+    "connect-redis": "^7.1.0",
+    "express": "^4.21.0",
+    "express-session": "^1.18.0",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {}
+}
