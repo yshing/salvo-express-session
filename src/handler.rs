@@ -1,6 +1,9 @@
 //! Express-session compatible middleware handler for Salvo
 
-use salvo::prelude::*;
+use salvo_core::http::cookie::{
+    self, time::Duration as CookieDuration, SameSite as CookieSameSite,
+};
+use salvo_core::prelude::*;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -73,14 +76,14 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
         // Set max age
         if self.config.max_age > 0 {
             cookie_builder =
-                cookie_builder.max_age(cookie::time::Duration::seconds(self.config.max_age as i64));
+                cookie_builder.max_age(CookieDuration::seconds(self.config.max_age as i64));
         }
 
         // Set SameSite
         cookie_builder = match self.config.cookie_same_site {
-            SameSite::Strict => cookie_builder.same_site(cookie::SameSite::Strict),
-            SameSite::Lax => cookie_builder.same_site(cookie::SameSite::Lax),
-            SameSite::None => cookie_builder.same_site(cookie::SameSite::None),
+            SameSite::Strict => cookie_builder.same_site(CookieSameSite::Strict),
+            SameSite::Lax => cookie_builder.same_site(CookieSameSite::Lax),
+            SameSite::None => cookie_builder.same_site(CookieSameSite::None),
         };
 
         res.add_cookie(cookie_builder.build());
@@ -93,7 +96,7 @@ impl<S: SessionStore> ExpressSessionHandler<S> {
 
         let cookie = cookie::Cookie::build(cookie_name)
             .path(cookie_path)
-            .max_age(cookie::time::Duration::ZERO)
+            .max_age(CookieDuration::ZERO)
             .build();
 
         res.add_cookie(cookie);

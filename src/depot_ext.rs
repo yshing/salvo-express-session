@@ -1,7 +1,7 @@
 //! Extension trait for Depot to easily access sessions
 
 use crate::session::Session;
-use salvo::Depot;
+use salvo_core::Depot;
 
 const SESSION_KEY: &str = "salvo.express.session";
 

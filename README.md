@@ -20,7 +20,7 @@ Add to your `Cargo.toml`:
 ```toml
 [dependencies]
 salvo-express-session = "0.1"
-salvo = { version = "0.77", features = ["cookie"] }
+salvo = { version = "0.87", features = ["cookie"] }
 tokio = { version = "1", features = ["full"] }
 ```
 

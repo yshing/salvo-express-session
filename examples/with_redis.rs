@@ -210,7 +210,7 @@ async fn main() {
     let addr = format!("127.0.0.1:{}", port);
 
     // Start server
-    let acceptor = TcpListener::new(&addr).bind().await;
+    let acceptor = TcpListener::new(addr.clone()).bind().await;
     println!("Server running at http://{}", addr);
     println!();
     println!("Endpoints:");
